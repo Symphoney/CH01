@@ -134,6 +134,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="CH01.cpp" />
+    <ClCompile Include="HelloWindowsDesktop.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ResourceCompile Include="CH01.rc" />
