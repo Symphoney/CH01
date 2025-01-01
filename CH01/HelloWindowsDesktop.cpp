@@ -4,6 +4,8 @@
 #include <stdlib.h>
 #include <string.h>
 #include <tchar.h>
+#include <VersionHelpers.h>
+#include "Resource.h"
 
 // Global variables
 
@@ -18,6 +20,15 @@ HINSTANCE hInst;
 
 // Forward declarations of functions included in this code module:
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+
+// Constants for animation
+#define TIMER_ID 1
+#define TIMER_INTERVAL 200 // 200 ms
+
+// Global variables for animation
+TCHAR fullGreeting[256];
+TCHAR animatedText[256];
+int charIndex = 0;
 
 
 int WINAPI WinMain(
@@ -36,8 +47,9 @@ int WINAPI WinMain(
 	wcex.cbWndExtra = 0;
 	wcex.hInstance = 0;
 	wcex.hIcon = LoadIcon(wcex.hInstance, IDI_APPLICATION);
-	wcex.hCursor = LoadCursor(NULL, IDC_ARROW);
-	wcex.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+	// wcex.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(IDI_CUSTOM_ICON));
+	wcex.hCursor = LoadCursor(NULL, IDC_HAND);
+	wcex.hbrBackground = CreateSolidBrush(RGB(135, 206, 235)); // sky blue
 	wcex.lpszMenuName = NULL;
 	wcex.lpszClassName = szWindowClass;
 	wcex.hIconSm = LoadIcon(wcex.hInstance, IDI_APPLICATION);
@@ -62,7 +74,7 @@ int WINAPI WinMain(
 		szTitle,				// text that appears in title bar
 		WS_OVERLAPPEDWINDOW,	// type of window to create
 		CW_USEDEFAULT, CW_USEDEFAULT,		// init position (x, y)
-		500, 100,		// init size (width, length)
+		400, 150,		// init size (width, length)
 		NULL,			// parent of this window
 		NULL,			// app does not have a menu bar
 		hInstance,		// first parameter from WinMain
@@ -104,27 +116,120 @@ int WINAPI WinMain(
 // WM_DESTROY	- post a quit message and return
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
+	static HWND hButton; // Store button handle
+	
+
 	PAINTSTRUCT ps;
 	HDC hdc;
-	TCHAR greeting[] = _T("Hello, Windows desktop!");
+
+	
 
 	switch (message)
 	{
+	case WM_CREATE:
+	{
+		// Create button when window is created
+		hButton = CreateWindow(
+			_T("BUTTON"), _T("Click Me"),
+			WS_TABSTOP | WS_VISIBLE | WS_CHILD | BS_DEFPUSHBUTTON,
+			50, 50, 100, 30,
+			hWnd, (HMENU)1, hInst, NULL);
+
+		// Init full greeting message
+		SYSTEMTIME st;
+		GetLocalTime(&st);
+		HMENU hMenu = CreateMenu();
+		AppendMenu(hMenu, MF_STRING, 1, _T("Exit"));
+		SetMenu(hWnd, hMenu);
+
+		if (st.wHour < 12)
+			_tcscpy_s(fullGreeting, _T("Good morning, rija!"));
+		else if (st.wHour < 18)
+			_tcscpy_s(fullGreeting, _T("Good afternoon, rija!"));
+		else
+			_tcscpy_s(fullGreeting, _T("Good evening, rija!"));
+
+		// Start timer for animation
+		SetTimer(hWnd, TIMER_ID, TIMER_INTERVAL, NULL);
+		charIndex = 0;
+		animatedText[0] = '\0';
+	}
+		break;
+
+	case WM_COMMAND:
+		if (LOWORD(wParam) == 1)
+		{
+			if ((HWND)lParam == hButton)
+			{
+				// Button clicked
+				MessageBox(hWnd, _T("button says hi!"), _T("u clicked on me!"), MB_OK);
+			}
+			else {
+				// Exit menu item selected
+				PostQuitMessage(0);
+			}
+		}
+
+	case WM_TIMER:
+		if (wParam == TIMER_ID)
+		{
+			// Update animated text
+			if (charIndex < _tcslen(fullGreeting))
+			{
+				animatedText[charIndex] = fullGreeting[charIndex];
+				animatedText[charIndex + 1] = '\0';
+				charIndex++;
+				InvalidateRect(hWnd, NULL, TRUE); // Request a repaint
+			}
+		}
+		break;
+
+
 	case WM_PAINT:
 		hdc = BeginPaint(hWnd, &ps);
 
-		// Just print "Hello, Windows desktop!"
-		// in top left corner.
-		TextOut(hdc,
-			5, 5,
-			greeting, _tcslen(greeting));
-		// End app-specific layout section.
+		// Draw greeting message
+		TextOut(hdc, 5, 5, animatedText, _tcslen(animatedText));
+
+		// Fetch and display system information
+		TCHAR sysInfo[256];
+
+		// Use VersionHelpers to check the version
+		if (IsWindows10OrGreater())
+		{
+			_stprintf_s(sysInfo, _T("Windows Version: 10 or Greater"));
+		}
+		else if (IsWindows8OrGreater())
+		{
+			_stprintf_s(sysInfo, _T("Windows Version: 8 or Greater"));
+		}
+		else if (IsWindows7OrGreater())
+		{
+			_stprintf_s(sysInfo, _T("Windows Version: 7 or Greater"));
+		}
+		else
+		{
+			_stprintf_s(sysInfo, _T("Older Windows Version"));
+		}
+
+		TextOut(hdc, 5, 30, sysInfo, _tcslen(sysInfo));
 
 		EndPaint(hWnd, &ps);
 		break;
+
+
+	// Interactive Keyboard Input
+	case WM_KEYDOWN:
+		if (wParam == VK_RETURN)
+		{
+			MessageBox(hWnd, _T("You pressed Enter!"), _T("Key Press"), MB_OK);
+		}
+		break;
+
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;
+
 	default:
 		return DefWindowProc(hWnd, message, wParam, lParam);
 		break;
